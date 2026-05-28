@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英検3級 勉強アプリ</title>
+<style>
+  :root {
+    --primary: #6C63FF;
+    --primary-dark: #5a52d5;
+    --correct: #22c55e;
+    --wrong: #ef4444;
+    --bg: #f0f2ff;
+    --card-bg: #ffffff;
+    --text: #1e1e2e;
+    --subtext: #6b7280;
+    --border: #e5e7eb;
+    --shadow: 0 4px 20px rgba(108,99,255,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, var(--primary), #a78bfa);
+    color: white;
+    padding: 20px 16px 16px;
+    text-align: center;
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; }
+  header p { font-size: 0.8rem; opacity: 0.85; margin-top: 4px; }
+
+  .tabs {
+    display: flex;
+    background: white;
+    border-bottom: 2px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 14px 8px;
+    border: none;
+    background: transparent;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--subtext);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  .cat-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 12px 16px;
+    scrollbar-width: none;
+    background: white;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-scroll::-webkit-scrollbar { display: none; }
+  .cat-btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 2px solid var(--border);
+    background: white;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .cat-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .main { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+  /* Progress */
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.82rem;
+    color: var(--subtext);
+  }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; margin-bottom: 16px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #a78bfa); border-radius: 3px; transition: width 0.4s; }
+
+  /* Flash card */
+  .card-wrap {
+    perspective: 1000px;
+    height: 220px;
+    margin-bottom: 20px;
+  }
+  .card {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s ease;
+    cursor: pointer;
+  }
+  .card.flipped { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backface-visibility: hidden;
+    box-shadow: var(--shadow);
+  }
+  .card-front {
+    background: linear-gradient(135deg, var(--primary), #a78bfa);
+    color: white;
+  }
+  .card-back {
+    background: var(--card-bg);
+    transform: rotateY(180deg);
+    border: 2px solid var(--primary);
+  }
+  .card-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: 0.7;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .card-front .card-label { color: rgba(255,255,255,0.8); }
+  .card-back .card-label { color: var(--primary); }
+  .card-q { font-size: 1.05rem; font-weight: 700; text-align: center; line-height: 1.5; }
+  .card-front .card-q { color: white; }
+  .card-back .card-q { color: var(--text); font-size: 0.95rem; }
+  .card-hint { font-size: 0.75rem; margin-top: 12px; opacity: 0.65; }
+  .card-front .card-hint { color: rgba(255,255,255,0.8); }
+
+  .card-nav { display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .nav-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-btn.primary { background: var(--primary); color: white; }
+  .nav-btn.primary:hover { background: var(--primary-dark); }
+  .nav-btn.secondary { background: white; color: var(--primary); border: 2px solid var(--primary); }
+  .nav-btn.icon { padding: 12px 16px; background: white; border: 2px solid var(--border); color: var(--text); border-radius: 12px; font-size: 1rem; }
+
+  /* Quiz */
+  .quiz-q {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .quiz-q-text { font-size: 1rem; font-weight: 700; line-height: 1.6; }
+  .choices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .choice-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    min-height: 52px;
+  }
+  .choice-btn:hover:not(:disabled) { border-color: var(--primary); background: #f5f3ff; }
+  .choice-btn.correct { border-color: var(--correct); background: #f0fdf4; color: #166534; }
+  .choice-btn.wrong { border-color: var(--wrong); background: #fef2f2; color: #991b1b; }
+  .choice-label {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .choice-btn.correct .choice-label { background: var(--correct); color: white; }
+  .choice-btn.wrong .choice-label { background: var(--wrong); color: white; }
+
+  .exp-box {
+    background: #f5f3ff;
+    border-left: 4px solid var(--primary);
+    border-radius: 0 12px 12px 0;
+    padding: 14px;
+    font-size: 0.84rem;
+    line-height: 1.6;
+    margin-bottom: 14px;
+    display: none;
+    color: #3730a3;
+  }
+  .exp-box.show { display: block; }
+
+  .score-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+  .score-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .score-badge.ok { background: #f0fdf4; color: #166534; border: 2px solid var(--correct); }
+  .score-badge.ng { background: #fef2f2; color: #991b1b; border: 2px solid var(--wrong); }
+
+  /* Result */
+  .result-screen {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 20px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .result-emoji { font-size: 3rem; margin-bottom: 12px; }
+  .result-score { font-size: 2.5rem; font-weight: 800; color: var(--primary); }
+  .result-msg { font-size: 0.95rem; color: var(--subtext); margin: 8px 0 24px; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌟 英検3級 勉強アプリ</h1>
+  <p>フラッシュカード ＆ 4択クイズで合格を目指そう！</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchMode('flash')">📖 フラッシュカード</button>
+  <button class="tab-btn" onclick="switchMode('quiz')">✏️ 4択クイズ</button>
+</div>
+
+<div class="cat-scroll" id="catScroll"></div>
+
+<div class="main">
+  <div class="progress-row">
+    <span id="progressText">1 / 1</span>
+    <span id="catLabel">全カテゴリ</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+  <!-- Flash Card -->
+  <div id="flashSection">
+    <div class="card-wrap" onclick="flipCard()">
+      <div class="card" id="card">
+        <div class="card-face card-front">
+          <div class="card-label">Question</div>
+          <div class="card-q" id="flashQ"></div>
+          <div class="card-hint">タップして答えを確認</div>
+        </div>
+        <div class="card-face card-back">
+          <div class="card-label">Answer</div>
+          <div class="card-q" id="flashA"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-nav">
+      <button class="nav-btn secondary" onclick="prevCard()">◀ 前へ</button>
+      <button class="nav-btn icon" onclick="shuffleCards()" title="シャッフル">🔀</button>
+      <button class="nav-btn primary" onclick="nextCard()">次へ ▶</button>
+    </div>
+  </div>
+
+  <!-- Quiz -->
+  <div id="quizSection" class="hidden">
+    <div class="score-row">
+      <span class="score-badge ok">✅ 正解: <span id="scoreOk">0</span></span>
+      <span class="score-badge ng">❌ 不正解: <span id="scoreNg">0</span></span>
+    </div>
+    <div id="quizContent">
+      <div class="quiz-q"><div class="quiz-q-text" id="quizQ"></div></div>
+      <div class="choices" id="choices"></div>
+      <div class="exp-box" id="expBox"></div>
+      <div style="text-align:center">
+        <button class="nav-btn primary hidden" id="nextBtn" onclick="nextQuiz()">次の問題 ▶</button>
+      </div>
+    </div>
+    <div class="result-screen hidden" id="resultScreen">
+      <div class="result-emoji" id="resultEmoji"></div>
+      <div class="result-score" id="resultScore"></div>
+      <div class="result-msg" id="resultMsg"></div>
+      <button class="nav-btn primary" onclick="restartQuiz()">🔄 もう一度チャレンジ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALL_QUESTIONS = [
+  // ===== 語彙・単語 =====
+  {cat:"語彙・単語",q:"「beautiful」の意味は？",a:"美しい・きれいな",choices:["美しい・きれいな","悲しい","大きい","古い"],correct:0,exp:"beautifulは形容詞で「美しい・きれいな」という意味。She is beautiful.（彼女は美しい）"},
+  {cat:"語彙・単語",q:"「hungry」の意味は？",a:"空腹の・お腹がすいた",choices:["空腹の・お腹がすいた","眠い","疲れた","怒った"],correct:0,exp:"hungryは「空腹の」。I am hungry.（お腹がすいた）"},
+  {cat:"語彙・単語",q:"「difficult」の意味は？",a:"難しい",choices:["難しい","簡単な","楽しい","速い"],correct:0,exp:"difficultは「難しい」。hardとほぼ同義。This problem is difficult.（この問題は難しい）"},
+  {cat:"語彙・単語",q:"「remember」の意味は？",a:"覚えている・思い出す",choices:["覚えている・思い出す","忘れる","知る","考える"],correct:0,exp:"rememberは「覚えている・思い出す」。対義語はforget（忘れる）。"},
+  {cat:"語彙・単語",q:"「popular」の意味は？",a:"人気のある",choices:["人気のある","有名な","珍しい","古い"],correct:0,exp:"popularは「人気のある・よく知られた」。This song is popular.（この歌は人気がある）"},
+  {cat:"語彙・単語",q:"「practice」の意味は？",a:"練習（する）",choices:["練習（する）","遊ぶ","休む","話す"],correct:0,exp:"practiceは名詞で「練習」、動詞で「練習する」。practice playing the piano（ピアノを練習する）"},
+  {cat:"語彙・単語",q:"「borrow」の意味は？",a:"借りる",choices:["借りる","貸す","買う","売る"],correct:0,exp:"borrowは「（人から）借りる」。対義語はlend（貸す）。Can I borrow your pen?（ペンを借りていい？）"},
+  {cat:"語彙・単語",q:"「collect」の意味は？",a:"集める・収集する",choices:["集める・収集する","配る","捨てる","作る"],correct:0,exp:"collectは「集める・収集する」。collect stamps（切手を集める）"},
+  {cat:"語彙・単語",q:"「surprised」の意味は？",a:"驚いた",choices:["驚いた","悲しんだ","喜んだ","怒った"],correct:0,exp:"surprisedは「驚いた」。I was surprised at the news.（そのニュースに驚いた）"},
+  {cat:"語彙・単語",q:"「environment」の意味は？",a:"環境",choices:["環境","天気","社会","家族"],correct:0,exp:"environmentは「環境」。protect the environment（環境を守る）"},
+  {cat:"語彙・単語",q:"「choose」の意味は？",a:"選ぶ",choices:["選ぶ","変える","作る","見る"],correct:0,exp:"chooseは「選ぶ」。過去形はchose。Please choose one.（一つ選んでください）"},
+  {cat:"語彙・単語",q:"「information」の意味は？",a:"情報",choices:["情報","説明","意見","問題"],correct:0,exp:"informationは「情報」。不可算名詞なので×informations。"},
+  {cat:"語彙・単語",q:"「necessary」の意味は？",a:"必要な",choices:["必要な","十分な","特別な","普通の"],correct:0,exp:"necessaryは「必要な」。It is necessary to study.（勉強することが必要だ）"},
+  {cat:"語彙・単語",q:"「calendar」の意味は？",a:"カレンダー・暦",choices:["カレンダー・暦","時計","地図","新聞"],correct:0,exp:"calendarは「カレンダー・暦」。スペルに注意。"},
+  {cat:"語彙・単語",q:"「volunteer」の意味は？",a:"ボランティア（活動）",choices:["ボランティア（活動）","旅行者","観光客","学生"],correct:0,exp:"volunteerは「ボランティア・自発的に行う人」。volunteer work（ボランティア活動）"},
+
+  // ===== 熟語・イディオム =====
+  {cat:"熟語・イディオム",q:"「look forward to ～」の意味は？",a:"～を楽しみに待つ",choices:["～を楽しみに待つ","～を振り返る","～を心配する","～を避ける"],correct:0,exp:"look forward to ～は「～を楽しみに待つ」。toの後は名詞かV-ing形。I look forward to seeing you."},
+  {cat:"熟語・イディオム",q:"「take care of ～」の意味は？",a:"～の世話をする・～に気をつける",choices:["～の世話をする・～に気をつける","～を諦める","～を借りる","～を始める"],correct:0,exp:"take care of ～は「～の世話をする」または「～に気をつける」。Take care of yourself.（体に気をつけて）"},
+  {cat:"熟語・イディオム",q:"「be good at ～」の意味は？",a:"～が得意である",choices:["～が得意である","～が苦手である","～が好きである","～を知っている"],correct:0,exp:"be good at ～は「～が得意」。対義語はbe bad at ～（苦手）。She is good at singing.（彼女は歌が得意）"},
+  {cat:"熟語・イディオム",q:"「give up」の意味は？",a:"諦める",choices:["諦める","始める","続ける","成功する"],correct:0,exp:"give upは「諦める」。Don't give up!（諦めないで！）"},
+  {cat:"熟語・イディオム",q:"「turn off」の意味は？",a:"（電気・機器などを）消す・切る",choices:["（電気・機器などを）消す・切る","つける","開ける","閉める"],correct:0,exp:"turn offは「消す・切る」。turn off the TV（テレビを消す）。対義語はturn on（つける）。"},
+  {cat:"熟語・イディオム",q:"「get on ～」の意味は？",a:"（乗り物に）乗る",choices:["（乗り物に）乗る","（乗り物から）降りる","（乗り物を）運転する","（乗り物を）止める"],correct:0,exp:"get onは「（バス・電車などに）乗る」。対義語はget off（降りる）。"},
+  {cat:"熟語・イディオム",q:"「at last」の意味は？",a:"ついに・とうとう",choices:["ついに・とうとう","最初に","すぐに","たまに"],correct:0,exp:"at lastは「ついに・とうとう」。At last, I finished my homework.（ついに宿題が終わった）"},
+  {cat:"熟語・イディオム",q:"「had better ～」の意味は？",a:"～した方がよい",choices:["～した方がよい","～するかもしれない","～できる","～しなければならない"],correct:0,exp:"had better ～は「～した方がよい」。You had better go now.（もう行った方がいい）"},
+  {cat:"熟語・イディオム",q:"「would like to ～」の意味は？",a:"～したいと思う",choices:["～したいと思う","～しなければならない","～できる","～するつもりだ"],correct:0,exp:"would like to ～は「～したい」。want to ～の丁寧な言い方。I would like to visit Japan."},
+  {cat:"熟語・イディオム",q:"「as soon as ～」の意味は？",a:"～するとすぐに",choices:["～するとすぐに","～する前に","～した後で","～するまで"],correct:0,exp:"as soon as ～は「～するとすぐに」。As soon as I got home, I ate dinner.（家に着くとすぐに夕食を食べた）"},
+
+  // ===== 文法・動詞の形 =====
+  {cat:"文法・動詞の形",q:"「I ( ) tennis every day.」の空欄に入るのは？",a:"play",choices:["play","plays","played","playing"],correct:0,exp:"主語がIなので三人称単数のsは不要。副詞every dayで現在の習慣を表すので現在形playが正解。"},
+  {cat:"文法・動詞の形",q:"「She ( ) to school by bus.」の空欄は？",a:"goes",choices:["goes","go","went","going"],correct:0,exp:"主語がShe（三人称単数）なのでgo→goesと変化する。"},
+  {cat:"文法・動詞の形",q:"「They ( ) soccer yesterday.」の空欄は？",a:"played",choices:["played","play","plays","playing"],correct:0,exp:"yesterdayは過去を示すので過去形played。"},
+  {cat:"文法・動詞の形",q:"「I have ( ) my homework.」の空欄は？",a:"finished",choices:["finished","finish","finishing","finishes"],correct:0,exp:"have + 過去分詞で現在完了形。finishの過去分詞はfinished。"},
+  {cat:"文法・動詞の形",q:"「She is ( ) a book now.」の空欄は？",a:"reading",choices:["reading","read","reads","readed"],correct:0,exp:"is + V-ingで現在進行形。nowが進行中であることを示す。"},
+  {cat:"文法・動詞の形",q:"「The letter was ( ) by Tom.」の空欄は？",a:"written",choices:["written","write","writing","wrote"],correct:0,exp:"was + 過去分詞で受動態（受け身）。writeの過去分詞はwritten。"},
+  {cat:"文法・動詞の形",q:"「I ( ) to Paris next week.」の空欄は？",a:"am going",choices:["am going","go","went","will went"],correct:0,exp:"next weekは未来を表し、be going toで予定を示す。am goingが正解。"},
+  {cat:"文法・動詞の形",q:"「He can ( ) French.」の空欄は？",a:"speak",choices:["speak","speaks","speaking","spoken"],correct:0,exp:"助動詞canの後ろは動詞の原形。speakが正解。"},
+  {cat:"文法・動詞の形",q:"「You must ( ) the rules.」の空欄は？",a:"follow",choices:["follow","follows","following","followed"],correct:0,exp:"助動詞mustの後ろは動詞の原形follow。"},
+  {cat:"文法・動詞の形",q:"「I want ( ) a doctor.」の空欄は？",a:"to be",choices:["to be","be","being","been"],correct:0,exp:"want + to不定詞。I want to be a doctor.（医者になりたい）"},
+
+  // ===== 疑問詞・会話表現 =====
+  {cat:"疑問詞・会話表現",q:"「( ) did you go last weekend?」の空欄は？",a:"Where",choices:["Where","When","What","Who"],correct:0,exp:"「どこへ行ったか」を聞いているのでWhereが正解。go last weekendから場所を尋ねる疑問詞を選ぶ。"},
+  {cat:"疑問詞・会話表現",q:"「( ) is your birthday?」の空欄は？",a:"When",choices:["When","Where","What","How"],correct:0,exp:"誕生日（時間・日付）を尋ねているのでWhen。"},
+  {cat:"疑問詞・会話表現",q:"「( ) does she look like?」の空欄は？",a:"What",choices:["What","How","Who","Which"],correct:0,exp:"「彼女はどんな見た目ですか」はWhat does she look like?。Howは状態・様子を聞く。"},
+  {cat:"疑問詞・会話表現",q:"「( ) long does it take?」の空欄は？",a:"How",choices:["How","What","Which","When"],correct:0,exp:"「どのくらい（時間が）かかりますか」はHow long does it take?。How + 形容詞/副詞の形。"},
+  {cat:"疑問詞・会話表現",q:"「How ( ) sisters do you have?」の空欄は？",a:"many",choices:["many","much","long","old"],correct:0,exp:"「何人の姉妹がいますか」はHow many ～?。可算名詞にはmany。不可算名詞にはmuch。"},
+  {cat:"疑問詞・会話表現",q:"「May I help you?」への自然な返答は？",a:"Yes, please. I'm looking for a jacket.",choices:["Yes, please. I'm looking for a jacket.","No, I'm not.","I don't know.","You're welcome."],correct:0,exp:"May I help you?（何かお手伝いしましょうか）に対して、Yes, please. I'm looking for ～（はい、～を探しています）が自然な返答。"},
+  {cat:"疑問詞・会話表現",q:"「Could you say that again, please?」の意味は？",a:"もう一度言っていただけますか？",choices:["もう一度言っていただけますか？","これを手伝っていただけますか？","少し待っていただけますか？","ゆっくり話していただけますか？"],correct:0,exp:"Could you say that again?は「もう一度言っていただけますか？」。丁寧な依頼表現。"},
+  {cat:"疑問詞・会話表現",q:"「Excuse me, where is the nearest station?」への適切な返答は？",a:"It's about five minutes from here.",choices:["It's about five minutes from here.","I'm sorry, I can't.","Yes, it is.","I don't have a map."],correct:0,exp:"「最寄り駅はどこですか」という質問なので、場所や距離を答えるのが適切。It's about five minutes from here.（ここから約5分です）"},
+  {cat:"疑問詞・会話表現",q:"「How do you do?」への正しい返答は？",a:"How do you do?",choices:["How do you do?","I'm fine, thank you.","Nice to meet you.","Good morning."],correct:0,exp:"How do you do?（はじめまして）は初対面の挨拶で、同じHow do you do?と返すのが慣例。"},
+  {cat:"疑問詞・会話表現",q:"「What time do you usually get up?」の意味は？",a:"あなたはたいてい何時に起きますか？",choices:["あなたはたいてい何時に起きますか？","あなたは何時に寝ますか？","あなたはいつ学校へ行きますか？","あなたは何時に帰りますか？"],correct:0,exp:"What time ～?（何時に～）＋ get up（起きる）＋ usually（たいてい）。"},
+
+  // ===== 前置詞・接続詞 =====
+  {cat:"前置詞・接続詞",q:"「I study English ( ) Monday.」の空欄は？",a:"on",choices:["on","in","at","by"],correct:0,exp:"曜日の前はon。on Monday（月曜日に）。monthの前はin、時刻の前はat。"},
+  {cat:"前置詞・接続詞",q:"「She was born ( ) 2010.」の空欄は？",a:"in",choices:["in","on","at","for"],correct:0,exp:"年・月・季節の前はin。in 2010（2010年に）。"},
+  {cat:"前置詞・接続詞",q:"「The train arrives ( ) 8:00.」の空欄は？",a:"at",choices:["at","on","in","by"],correct:0,exp:"時刻の前はat。at 8:00（8時に）。"},
+  {cat:"前置詞・接続詞",q:"「I studied hard, ( ) I failed the test.」の空欄は？",a:"but",choices:["but","and","so","because"],correct:0,exp:"「一生懸命勉強したが、テストに失敗した」という逆接なのでbut。"},
+  {cat:"前置詞・接続詞",q:"「I was tired, ( ) I went to bed early.」の空欄は？",a:"so",choices:["so","but","or","although"],correct:0,exp:"「疲れていたので、早く寝た」という結果なのでso（だから）。"},
+  {cat:"前置詞・接続詞",q:"「( ) it was raining, we played tennis.」の空欄は？",a:"Although",choices:["Although","Because","So","And"],correct:0,exp:"「雨が降っていたけれど、テニスをした」という逆接なのでAlthough（～にもかかわらず）。"},
+  {cat:"前置詞・接続詞",q:"「I like coffee ( ) tea.」の空欄は？",a:"and",choices:["and","but","or","so"],correct:0,exp:"「コーヒーと紅茶が好き」という並列なのでand。"},
+  {cat:"前置詞・接続詞",q:"「Do you want coffee ( ) tea?」の空欄は？",a:"or",choices:["or","and","but","so"],correct:0,exp:"「コーヒーか紅茶か？」という選択を示すor。疑問文での選択にはorを使う。"},
+  {cat:"前置詞・接続詞",q:"「The book is ( ) the table.」（机の上に）の空欄は？",a:"on",choices:["on","in","under","between"],correct:0,exp:"「机の上に」はon the table。inは中、underは下、betweenは間。"},
+  {cat:"前置詞・接続詞",q:"「She sat ( ) Tom and Mary.」（トムとメアリーの間に）の空欄は？",a:"between",choices:["between","among","beside","behind"],correct:0,exp:"2者の間はbetween。3者以上の間はamong。"},
+
+  // ===== 読解・長文理解 =====
+  {cat:"読解・長文理解",q:"英文中の「He went to the library to study.」のto studyの用法は？",a:"目的を表す不定詞（～するために）",choices:["目的を表す不定詞（～するために）","名詞的用法の不定詞","形容詞的用法の不定詞","動名詞"],correct:0,exp:"to + 動詞の原形が「目的」を示す副詞的用法。went to the library（図書館へ行った）＋to study（勉強するために）。"},
+  {cat:"読解・長文理解",q:"「This is the book that I bought yesterday.」の関係代名詞thatが指すものは？",a:"the book（本）",choices:["the book（本）","I（私）","yesterday（昨日）","bought（買った）"],correct:0,exp:"関係代名詞thatはthe bookを先行詞として受け、that I bought yesterdayがthe bookを修飾する。"},
+  {cat:"読解・長文理解",q:"パッセージに「The museum is closed on Mondays.」とあった場合、月曜日は？",a:"休館日",choices:["休館日","開館日","特別展開催日","入場無料日"],correct:0,exp:"closed on Mondaysは「月曜日は閉まっている」＝休館日。"},
+  {cat:"読解・長文理解",q:"「Please fill in the form and send it back to us.」の指示内容は？",a:"用紙に記入して返送する",choices:["用紙に記入して返送する","用紙を印刷する","用紙を持参する","用紙を捨てる"],correct:0,exp:"fill in（記入する）＋the form（用紙）＋send it back（返送する）。"},
+  {cat:"読解・長文理解",q:"英文でfirstly, secondly, finallyが使われているのは？",a:"順序・手順を説明するため",choices:["順序・手順を説明するため","理由を挙げるため","比較するため","結論を述べるため"],correct:0,exp:"firstly（まず）、secondly（次に）、finally（最後に）は手順や順番を説明する接続詞。"},
+  {cat:"読解・長文理解",q:"「The event starts at 10 a.m. and ends at 4 p.m.」イベントの時間は？",a:"6時間（午前10時〜午後4時）",choices:["6時間（午前10時〜午後4時）","4時間","8時間","2時間"],correct:0,exp:"10 a.m.から4 p.m.まで。12-10=2時間（午前）＋4時間（午後）＝6時間。"},
+
+  // ===== ライティング・英作文 =====
+  {cat:"ライティング・英作文",q:"「私は毎朝6時に起きます」を英語で表すと？",a:"I get up at six every morning.",choices:["I get up at six every morning.","I got up at six every morning.","I will get up at six every morning.","I getting up at six every morning."],correct:0,exp:"習慣を表す現在形。get upは「起きる」。at six（6時に）every morning（毎朝）。"},
+  {cat:"ライティング・英作文",q:"「彼女は音楽を聴くのが好きです」を英語で表すと？",a:"She likes listening to music.",choices:["She likes listening to music.","She likes to listen music.","She like listening to music.","She likes listen to music."],correct:0,exp:"like + V-ing（動名詞）またはlike + to V（to不定詞）どちらも可。listen to music（音楽を聴く）のtoを忘れずに。"},
+  {cat:"ライティング・英作文",q:"「昨日私は図書館で本を読みました」を英語で表すと？",a:"I read a book at the library yesterday.",choices:["I read a book at the library yesterday.","I readed a book at the library yesterday.","I was reading a book at the library yesterday.","I reads a book at the library yesterday."],correct:0,exp:"readの過去形はread（発音がredに変わる）。at the library（図書館で）yesterday（昨日）。"},
+  {cat:"ライティング・英作文",q:"「私はいつか外国に住みたい」を英語で表すと？",a:"I want to live abroad someday.",choices:["I want to live abroad someday.","I want living abroad someday.","I wants to live abroad someday.","I wanted to live abroad someday."],correct:0,exp:"want + to不定詞。abroad（外国に）someday（いつか）。"},
+  {cat:"ライティング・英作文",q:"「彼は3年間ずっと英語を勉強しています」を英語で表すと？",a:"He has been studying English for three years.",choices:["He has been studying English for three years.","He studied English for three years.","He has studied English since three years.","He is studying English for three years."],correct:0,exp:"現在完了進行形（has been + V-ing）で「ずっと～し続けている」。期間にはfor（since + 起点は誤り）。"},
+  {cat:"ライティング・英作文",q:"「このケーキは母によって作られました」を英語で表すと？",a:"This cake was made by my mother.",choices:["This cake was made by my mother.","This cake made by my mother.","My mother was made this cake.","This cake is made by my mother."],correct:0,exp:"受動態：主語 + be動詞 + 過去分詞 + by ～。過去のことなのでwas made。"},
+
+  // ===== リスニング対策 =====
+  {cat:"リスニング対策",q:"英語で「Hold on, please.」が使われる場面は？",a:"電話でちょっと待つよう伝えるとき",choices:["電話でちょっと待つよう伝えるとき","道を尋ねるとき","買い物をするとき","挨拶をするとき"],correct:0,exp:"Hold on, please.は電話で「少々お待ちください」という表現。Hold on=待って。"},
+  {cat:"リスニング対策",q:"「I'll take this one.」をお店で言うと？",a:"これをください（これに決めます）",choices:["これをください（これに決めます）","これはいりません","これはいくらですか","これを見せてください"],correct:0,exp:"I'll take ～は「～をください・～にします」。買い物での購入決定の表現。"},
+  {cat:"リスニング対策",q:"「What seems to be the problem?」が使われる場面は？",a:"医師が患者に症状を尋ねるとき",choices:["医師が患者に症状を尋ねるとき","先生が宿題を確認するとき","店員が注文を聞くとき","友人が近況を聞くとき"],correct:0,exp:"What seems to be the problem?（どうされましたか？）は病院での定番表現。"},
+  {cat:"リスニング対策",q:"「Could you speak more slowly?」の意味は？",a:"もっとゆっくり話していただけますか？",choices:["もっとゆっくり話していただけますか？","もう少し大きな声で話していただけますか？","もう一度繰り返していただけますか？","少し待っていただけますか？"],correct:0,exp:"Could you ～?は丁寧な依頼。speak slowly（ゆっくり話す）のmore slowly（もっとゆっくり）。"},
+  {cat:"リスニング対策",q:"放送でAnnouncement:と始まる文は何を示す？",a:"案内・告知",choices:["案内・告知","広告","ニュース","天気予報"],correct:0,exp:"Announcement（アナウンスメント）は「案内・告知」。駅や学校のアナウンスによく使われる。"},
+
+  // ===== 日常英語表現 =====
+  {cat:"日常英語表現",q:"「What a shame!」の意味は？",a:"残念だ！",choices:["残念だ！","なんて恥ずかしい！","素晴らしい！","驚いた！"],correct:0,exp:"What a shame!は「残念だ！」という意味。shameは「恥・残念なこと」。"},
+  {cat:"日常英語表現",q:"「It's up to you.」の意味は？",a:"あなた次第です・あなたが決めていいですよ",choices:["あなた次第です・あなたが決めていいですよ","私が決めます","どちらでもいいです","わかりません"],correct:0,exp:"It's up to you.は「あなた次第・お任せします」。up to ～で「～次第・～に任される」。"},
+  {cat:"日常英語表現",q:"「I'm in a hurry.」の意味は？",a:"急いでいます",choices:["急いでいます","困っています","疲れています","道に迷っています"],correct:0,exp:"in a hurryは「急いで」。I'm in a hurry.（急いでいる）"},
+  {cat:"日常英語表現",q:"「By the way」の意味は？",a:"ところで・話は変わりますが",choices:["ところで・話は変わりますが","もちろん","そのために","結局"],correct:0,exp:"By the wayは話題を切り替えるときの表現「ところで」。"},
+  {cat:"日常英語表現",q:"「I couldn't agree more.」の意味は？",a:"まったく同感です",choices:["まったく同感です","まったく同意できません","少し同意します","わかりません"],correct:0,exp:"I couldn't agree more.は「これ以上同意できないほど同意している」→「まったく同感」という強い同意表現。"},
+  {cat:"日常英語表現",q:"「Let me know if you need anything.」の意味は？",a:"何か必要なら知らせてください",choices:["何か必要なら知らせてください","必要なものを教えます","何も必要ありません","すぐに戻ります"],correct:0,exp:"Let me know ～は「～を知らせて」。if you need anything（何か必要なら）。"},
+  {cat:"日常英語表現",q:"「That makes sense.」の意味は？",a:"なるほど・筋が通っている",choices:["なるほど・筋が通っている","意味がわかりません","おかしいですね","確かにそうですね"],correct:0,exp:"make senseは「意味をなす・筋が通る」。That makes sense.（なるほど・理解できます）"},
+  {cat:"日常英語表現",q:"「Feel free to ～」の意味は？",a:"遠慮なく～してください",choices:["遠慮なく～してください","～してはいけません","～してみてください","～した方がいいです"],correct:0,exp:"Feel free to ～は「遠慮なく～してください」。Feel free to ask any questions.（遠慮なく質問してください）"},
+  {cat:"日常英語表現",q:"「I'd better get going.」の意味は？",a:"そろそろ行かなければ",choices:["そろそろ行かなければ","もう少しいます","行ってきます","行きたくない"],correct:0,exp:"I'd better（= I had better）は「～した方がいい」。get going（出発する・行く）。"},
+
+  // ===== 比較・関係代名詞 =====
+  {cat:"比較・関係代名詞",q:"「He is ( ) than his brother.」（彼は兄より背が高い）の空欄は？",a:"taller",choices:["taller","tall","tallest","more tall"],correct:0,exp:"thanを使った比較級。tallの比較級はtaller（-er形）。長い形容詞はmore ～を使う。"},
+  {cat:"比較・関係代名詞",q:"「This is the ( ) book in the library.」（最も面白い）の空欄は？",a:"most interesting",choices:["most interesting","more interesting","interestingest","much interesting"],correct:0,exp:"最上級。interestingは長い語なのでmost interestingと表す。"},
+  {cat:"比較・関係代名詞",q:"「She runs ( ) than I do.」（より速く）の空欄は？",a:"faster",choices:["faster","fast","fastest","more fast"],correct:0,exp:"fastの比較級はfaster。副詞の比較級も形容詞同様に-erを付ける。"},
+  {cat:"比較・関係代名詞",q:"「Do you know the boy ( ) is playing the guitar?」の空欄は？",a:"who",choices:["who","which","whose","what"],correct:0,exp:"先行詞がthe boy（人）で、後ろに主語がないのでwho（主格の関係代名詞）が正解。"},
+  {cat:"比較・関係代名詞",q:"「I have a dog ( ) name is Max.」の空欄は？",a:"whose",choices:["whose","who","which","that"],correct:0,exp:"「名前がマックスである犬」。name is Maxと続くので所有格の関係代名詞whose。"},
+  {cat:"比較・関係代名詞",q:"「This is the camera ( ) I bought in Tokyo.」の空欄は？",a:"that",choices:["that","who","whose","what"],correct:0,exp:"先行詞がthe camera（物）。I bought ～のように後ろの文に目的語が欠けているのでthat（目的格）。"},
+  {cat:"比較・関係代名詞",q:"「Mount Fuji is ( ) mountain in Japan.」（最も高い）の空欄は？",a:"the highest",choices:["the highest","the higher","highest","higher"],correct:0,exp:"最上級はthe + 形容詞-est。highの最上級はhighest。最上級にはthe（定冠詞）が必要。"},
+
+  // ===== 不定詞・動名詞 =====
+  {cat:"不定詞・動名詞",q:"「I enjoy ( ) music.」の空欄は？",a:"listening to",choices:["listening to","listen to","to listen to","listened to"],correct:0,exp:"enjoyは動名詞（V-ing）を目的語に取る。enjoy + V-ing。listen to music（音楽を聴く）。"},
+  {cat:"不定詞・動名詞",q:"「She decided ( ) a doctor.」の空欄は？",a:"to be",choices:["to be","being","be","been"],correct:0,exp:"decideはto不定詞を目的語に取る。decide + to V。She decided to be a doctor.（医者になることを決めた）"},
+  {cat:"不定詞・動名詞",q:"「I'm looking forward to ( ) you again.」の空欄は？",a:"seeing",choices:["seeing","see","saw","seen"],correct:0,exp:"look forward to ～のtoは前置詞なので後ろはV-ing（動名詞）。seeing you again（またあなたに会うこと）。"},
+  {cat:"不定詞・動名詞",q:"「It is important ( ) English every day.」の空欄は？",a:"to study",choices:["to study","studying","study","studied"],correct:0,exp:"It is ～ to V（Vすることは～だ）の構文。It is important to study English."},
+  {cat:"不定詞・動名詞",q:"「Would you mind ( ) the window?」の空欄は？",a:"opening",choices:["opening","to open","open","opened"],correct:0,exp:"mind + V-ing（動名詞）。Would you mind opening the window?（窓を開けていただけますか？）"},
+];
+
+let mode = 'flash';
+let currentCat = 'ALL';
+let filteredQ = [];
+let flashIdx = 0;
+let quizList = [];
+let quizIdx = 0;
+let scoreOk = 0;
+let scoreNg = 0;
+let answered = false;
+
+const LABELS = ['A','B','C','D'];
+
+function init() {
+  buildCatButtons();
+  filterQuestions();
+  if (mode === 'flash') showFlash();
+  else startQuiz();
+}
+
+function buildCatButtons() {
+  const cats = ['ALL', ...new Set(ALL_QUESTIONS.map(q => q.cat))];
+  const scroll = document.getElementById('catScroll');
+  scroll.innerHTML = '';
+  cats.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (c === currentCat ? ' active' : '');
+    btn.textContent = c === 'ALL' ? '全カテゴリ' : c;
+    btn.onclick = () => { currentCat = c; filterAndReset(); };
+    scroll.appendChild(btn);
+  });
+}
+
+function filterQuestions() {
+  filteredQ = currentCat === 'ALL' ? [...ALL_QUESTIONS] : ALL_QUESTIONS.filter(q => q.cat === currentCat);
+}
+
+function filterAndReset() {
+  document.querySelectorAll('.cat-btn').forEach((b,i) => {
+    const cats = ['ALL', ...new Set(ALL_QUESTIONS.map(q => q.cat))];
+    b.classList.toggle('active', cats[i] === currentCat);
+  });
+  filterQuestions();
+  flashIdx = 0;
+  document.getElementById('card').classList.remove('flipped');
+  scoreOk = 0; scoreNg = 0;
+  if (mode === 'flash') showFlash();
+  else startQuiz();
+}
+
+function switchMode(m) {
+  mode = m;
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i === (m==='flash'?0:1)));
+  document.getElementById('flashSection').classList.toggle('hidden', m !== 'flash');
+  document.getElementById('quizSection').classList.toggle('hidden', m !== 'quiz');
+  if (m === 'flash') { document.getElementById('card').classList.remove('flipped'); showFlash(); }
+  else startQuiz();
+}
+
+function showFlash() {
+  if (!filteredQ.length) return;
+  const q = filteredQ[flashIdx];
+  document.getElementById('flashQ').textContent = q.q;
+  document.getElementById('flashA').textContent = q.a;
+  document.getElementById('card').classList.remove('flipped');
+  updateProgress(flashIdx + 1, filteredQ.length);
+}
+
+function flipCard() { document.getElementById('card').classList.toggle('flipped'); }
+
+function nextCard() {
+  flashIdx = (flashIdx + 1) % filteredQ.length;
+  showFlash();
+}
+
+function prevCard() {
+  flashIdx = (flashIdx - 1 + filteredQ.length) % filteredQ.length;
+  showFlash();
+}
+
+function shuffleCards() {
+  for (let i = filteredQ.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [filteredQ[i], filteredQ[j]] = [filteredQ[j], filteredQ[i]];
+  }
+  flashIdx = 0;
+  showFlash();
+}
+
+function startQuiz() {
+  quizList = [...filteredQ];
+  for (let i = quizList.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [quizList[i], quizList[j]] = [quizList[j], quizList[i]];
+  }
+  quizIdx = 0;
+  scoreOk = 0; scoreNg = 0;
+  updateScore();
+  document.getElementById('resultScreen').classList.add('hidden');
+  document.getElementById('quizContent').classList.remove('hidden');
+  showQuiz();
+}
+
+function showQuiz() {
+  if (quizIdx >= quizList.length) { showResult(); return; }
+  const q = quizList[quizIdx];
+  answered = false;
+  document.getElementById('quizQ').textContent = q.q;
+  document.getElementById('expBox').className = 'exp-box';
+  document.getElementById('nextBtn').classList.add('hidden');
+
+  // shuffle choices keeping correct answer trackable
+  const shuffled = q.choices.map((c, i) => ({ text: c, orig: i }));
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const cont = document.getElementById('choices');
+  cont.innerHTML = '';
+  shuffled.forEach((ch, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = `<span class="choice-label">${LABELS[idx]}</span>${ch.text}`;
+    btn.onclick = () => {
+      if (answered) return;
+      answered = true;
+      const isCorrect = ch.orig === q.correct;
+      if (isCorrect) { scoreOk++; btn.classList.add('correct'); }
+      else {
+        scoreNg++;
+        btn.classList.add('wrong');
+        // highlight correct
+        cont.querySelectorAll('.choice-btn').forEach((b, bi) => {
+          if (shuffled[bi].orig === q.correct) b.classList.add('correct');
+        });
+      }
+      cont.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+      document.getElementById('expBox').textContent = q.exp;
+      document.getElementById('expBox').classList.add('show');
+      document.getElementById('nextBtn').classList.remove('hidden');
+      updateScore();
+    };
+    cont.appendChild(btn);
+  });
+
+  updateProgress(quizIdx + 1, quizList.length);
+}
+
+function nextQuiz() {
+  quizIdx++;
+  showQuiz();
+}
+
+function updateScore() {
+  document.getElementById('scoreOk').textContent = scoreOk;
+  document.getElementById('scoreNg').textContent = scoreNg;
+}
+
+function updateProgress(cur, total) {
+  document.getElementById('progressText').textContent = `${cur} / ${total}`;
+  document.getElementById('catLabel').textContent = currentCat === 'ALL' ? '全カテゴリ' : currentCat;
+  document.getElementById('progressFill').style.width = `${(cur / total) * 100}%`;
+}
+
+function showResult() {
+  document.getElementById('quizContent').classList.add('hidden');
+  document.getElementById('resultScreen').classList.remove('hidden');
+  const pct = Math.round((scoreOk / quizList.length) * 100);
+  document.getElementById('resultScore').textContent = `${pct}%`;
+  const msgs = [
+    [80, '🎉', '合格ライン突破！素晴らしい実力です！'],
+    [60, '😊', 'もう少し！苦手分野を重点的に復習しよう'],
+    [0,  '💪', 'もっと頑張れる！繰り返し練習しよう！'],
+  ];
+  const [,emoji, msg] = msgs.find(([t]) => pct >= t);
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultMsg').textContent = `${scoreOk}問正解 / ${quizList.length}問中　${msg}`;
+}
+
+function restartQuiz() { startQuiz(); }
+
+init();
+</script>
+</body>
+</html>
