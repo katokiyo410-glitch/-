@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英単語スタディアプリ</title>
+<style>
+  :root {
+    --primary: #6C63FF;
+    --primary-dark: #5a52d5;
+    --correct: #22c55e;
+    --wrong: #ef4444;
+    --bg: #f0f2ff;
+    --card-bg: #ffffff;
+    --text: #1e1e2e;
+    --subtext: #6b7280;
+    --border: #e5e7eb;
+    --shadow: 0 4px 20px rgba(108,99,255,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .topnav {
+    text-align: center;
+    padding: 8px;
+    background: white;
+    font-size: 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .topnav a { color: var(--primary); text-decoration: none; font-weight: 700; }
+  header {
+    background: linear-gradient(135deg, var(--primary), #a78bfa);
+    color: white;
+    padding: 20px 16px 16px;
+    text-align: center;
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; }
+  header p { font-size: 0.8rem; opacity: 0.85; margin-top: 4px; }
+
+  .tabs {
+    display: flex;
+    background: white;
+    border-bottom: 2px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 14px 8px;
+    border: none;
+    background: transparent;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--subtext);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .main { padding: 16px; max-width: 600px; margin: 0 auto; }
+
+  .empty-state {
+    background: white;
+    border-radius: 16px;
+    padding: 40px 20px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    color: var(--subtext);
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+  .empty-state .emoji { font-size: 2.5rem; margin-bottom: 12px; }
+
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.82rem;
+    color: var(--subtext);
+  }
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; margin-bottom: 16px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #a78bfa); border-radius: 3px; transition: width 0.4s; }
+
+  .card-wrap {
+    perspective: 1000px;
+    height: 260px;
+    margin-bottom: 20px;
+  }
+  .card {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.5s ease;
+    cursor: pointer;
+  }
+  .card.flipped { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backface-visibility: hidden;
+    box-shadow: var(--shadow);
+  }
+  .card-front {
+    background: linear-gradient(135deg, var(--primary), #a78bfa);
+    color: white;
+  }
+  .card-back {
+    background: var(--card-bg);
+    transform: rotateY(180deg);
+    border: 2px solid var(--primary);
+    overflow-y: auto;
+  }
+  .card-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: 0.7;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+  .card-front .card-label { color: rgba(255,255,255,0.8); }
+  .card-back .card-label { color: var(--primary); }
+  .card-word { font-size: 1.6rem; font-weight: 800; text-align: center; }
+  .card-meaning { font-size: 1.1rem; font-weight: 700; text-align: center; color: var(--text); margin-bottom: 14px; }
+  .card-example {
+    background: #f5f3ff;
+    border-left: 4px solid var(--primary);
+    border-radius: 0 10px 10px 0;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: #3730a3;
+    text-align: left;
+    width: 100%;
+  }
+  .card-example .en { font-weight: 700; margin-bottom: 4px; }
+  .card-hint { font-size: 0.75rem; margin-top: 12px; opacity: 0.65; }
+  .card-front .card-hint { color: rgba(255,255,255,0.8); }
+
+  .card-nav { display: flex; gap: 10px; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .nav-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .nav-btn.primary { background: var(--primary); color: white; }
+  .nav-btn.primary:hover { background: var(--primary-dark); }
+  .nav-btn.secondary { background: white; color: var(--primary); border: 2px solid var(--primary); }
+  .nav-btn.icon { padding: 12px 16px; background: white; border: 2px solid var(--border); color: var(--text); border-radius: 12px; font-size: 1rem; }
+
+  .quiz-q {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .quiz-q-text { font-size: 1.2rem; font-weight: 800; line-height: 1.6; text-align: center; }
+  .choices { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .choice-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    min-height: 52px;
+  }
+  .choice-btn:hover:not(:disabled) { border-color: var(--primary); background: #f5f3ff; }
+  .choice-btn.correct { border-color: var(--correct); background: #f0fdf4; color: #166534; }
+  .choice-btn.wrong { border-color: var(--wrong); background: #fef2f2; color: #991b1b; }
+  .choice-label {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .choice-btn.correct .choice-label { background: var(--correct); color: white; }
+  .choice-btn.wrong .choice-label { background: var(--wrong); color: white; }
+
+  .exp-box {
+    background: #f5f3ff;
+    border-left: 4px solid var(--primary);
+    border-radius: 0 12px 12px 0;
+    padding: 14px;
+    font-size: 0.84rem;
+    line-height: 1.6;
+    margin-bottom: 14px;
+    display: none;
+    color: #3730a3;
+  }
+  .exp-box.show { display: block; }
+  .exp-box .en { font-weight: 700; margin-bottom: 4px; }
+
+  .score-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+  .score-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .score-badge.ok { background: #f0fdf4; color: #166534; border: 2px solid var(--correct); }
+  .score-badge.ng { background: #fef2f2; color: #991b1b; border: 2px solid var(--wrong); }
+
+  .result-screen {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 20px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .result-emoji { font-size: 3rem; margin-bottom: 12px; }
+  .result-score { font-size: 2.5rem; font-weight: 800; color: var(--primary); }
+  .result-msg { font-size: 0.95rem; color: var(--subtext); margin: 8px 0 24px; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="topnav"><a href="index.html">← 英検3級クイズに戻る</a></div>
+<header>
+  <h1>📚 英単語スタディアプリ</h1>
+  <p id="headerSub">毎日の単語を、意味＆ネイティブの例文で覚えよう</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tabFlash" onclick="switchMode('flash')">📖 フラッシュカード</button>
+  <button class="tab-btn" id="tabQuiz" onclick="switchMode('quiz')">✏️ 4択クイズ</button>
+</div>
+
+<div class="main">
+  <div id="emptyState" class="empty-state hidden">
+    <div class="emoji">🌱</div>
+    まだ単語が登録されていません。<br>
+    毎日の英単語をチャットで伝えると、ここに貯まっていきます。<br>
+    ある程度貯まったら「単語帳アプリ更新して」と言ってね。
+  </div>
+
+  <div id="appBody">
+    <div class="progress-row">
+      <span id="progressText">1 / 1</span>
+      <span id="wordCountLabel">全0語</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div id="flashSection">
+      <div class="card-wrap" onclick="flipCard()">
+        <div class="card" id="card">
+          <div class="card-face card-front">
+            <div class="card-label">Word</div>
+            <div class="card-word" id="flashWord"></div>
+            <div class="card-hint">タップして答えを確認</div>
+          </div>
+          <div class="card-face card-back">
+            <div class="card-label">Meaning</div>
+            <div class="card-meaning" id="flashMeaning"></div>
+            <div class="card-example">
+              <div class="en" id="flashExampleEn"></div>
+              <div id="flashExampleJa"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-nav">
+        <button class="nav-btn secondary" onclick="prevCard()">◀ 前へ</button>
+        <button class="nav-btn icon" onclick="shuffleCards()" title="シャッフル">🔀</button>
+        <button class="nav-btn primary" onclick="nextCard()">次へ ▶</button>
+      </div>
+    </div>
+
+    <div id="quizSection" class="hidden">
+      <div class="score-row">
+        <span class="score-badge ok">✅ 正解: <span id="scoreOk">0</span></span>
+        <span class="score-badge ng">❌ 不正解: <span id="scoreNg">0</span></span>
+      </div>
+      <div id="quizContent">
+        <div class="quiz-q"><div class="quiz-q-text" id="quizQ"></div></div>
+        <div class="choices" id="choices"></div>
+        <div class="exp-box" id="expBox"></div>
+        <div style="text-align:center">
+          <button class="nav-btn primary hidden" id="nextBtn" onclick="nextQuiz()">次の問題 ▶</button>
+        </div>
+      </div>
+      <div class="result-screen hidden" id="resultScreen">
+        <div class="result-emoji" id="resultEmoji"></div>
+        <div class="result-score" id="resultScore"></div>
+        <div class="result-msg" id="resultMsg"></div>
+        <button class="nav-btn primary" onclick="restartQuiz()">🔄 もう一度チャレンジ</button>
+      </div>
+    </div>
+
+    <div id="quizTooFew" class="empty-state hidden">
+      <div class="emoji">🔢</div>
+      4択クイズは単語が4語以上たまると使えるようになります。<br>
+      それまではフラッシュカードで覚えよう！
+    </div>
+  </div>
+</div>
+
+<script>
+// このデータは vocabulary.json の内容から、トリガー発動時にClaudeが
+// 日本語訳・ネイティブの例文を生成して丸ごと差し替えます。
+// 形式: { word, meaning, exampleEn, exampleJa }
+const ALL_WORDS = [];
+
+let mode = 'flash';
+let flashIdx = 0;
+let quizList = [];
+let quizIdx = 0;
+let scoreOk = 0;
+let scoreNg = 0;
+let answered = false;
+
+const LABELS = ['A','B','C','D'];
+
+function init() {
+  document.getElementById('wordCountLabel').textContent = `全${ALL_WORDS.length}語`;
+  if (ALL_WORDS.length === 0) {
+    document.getElementById('emptyState').classList.remove('hidden');
+    document.getElementById('appBody').classList.add('hidden');
+    return;
+  }
+  document.getElementById('tabQuiz').disabled = ALL_WORDS.length < 4;
+  if (mode === 'flash') showFlash();
+  else startQuiz();
+}
+
+function switchMode(m) {
+  if (m === 'quiz' && ALL_WORDS.length < 4) return;
+  mode = m;
+  document.getElementById('tabFlash').classList.toggle('active', m === 'flash');
+  document.getElementById('tabQuiz').classList.toggle('active', m === 'quiz');
+  document.getElementById('flashSection').classList.toggle('hidden', m !== 'flash');
+  document.getElementById('quizSection').classList.toggle('hidden', m !== 'quiz');
+  document.getElementById('quizTooFew').classList.add('hidden');
+  if (m === 'flash') { document.getElementById('card').classList.remove('flipped'); showFlash(); }
+  else startQuiz();
+}
+
+function showFlash() {
+  const w = ALL_WORDS[flashIdx];
+  document.getElementById('flashWord').textContent = w.word;
+  document.getElementById('flashMeaning').textContent = w.meaning;
+  document.getElementById('flashExampleEn').textContent = w.exampleEn;
+  document.getElementById('flashExampleJa').textContent = w.exampleJa;
+  document.getElementById('card').classList.remove('flipped');
+  updateProgress(flashIdx + 1, ALL_WORDS.length);
+}
+
+function flipCard() { document.getElementById('card').classList.toggle('flipped'); }
+
+function nextCard() {
+  flashIdx = (flashIdx + 1) % ALL_WORDS.length;
+  showFlash();
+}
+
+function prevCard() {
+  flashIdx = (flashIdx - 1 + ALL_WORDS.length) % ALL_WORDS.length;
+  showFlash();
+}
+
+function shuffleCards() {
+  for (let i = ALL_WORDS.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ALL_WORDS[i], ALL_WORDS[j]] = [ALL_WORDS[j], ALL_WORDS[i]];
+  }
+  flashIdx = 0;
+  showFlash();
+}
+
+function startQuiz() {
+  if (ALL_WORDS.length < 4) {
+    document.getElementById('quizContent').classList.add('hidden');
+    document.getElementById('resultScreen').classList.add('hidden');
+    document.getElementById('quizTooFew').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('quizTooFew').classList.add('hidden');
+  document.getElementById('quizContent').classList.remove('hidden');
+  quizList = [...ALL_WORDS];
+  for (let i = quizList.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [quizList[i], quizList[j]] = [quizList[j], quizList[i]];
+  }
+  quizIdx = 0;
+  scoreOk = 0; scoreNg = 0;
+  updateScore();
+  document.getElementById('resultScreen').classList.add('hidden');
+  showQuiz();
+}
+
+function showQuiz() {
+  if (quizIdx >= quizList.length) { showResult(); return; }
+  const w = quizList[quizIdx];
+  answered = false;
+  document.getElementById('quizQ').textContent = w.word;
+  document.getElementById('expBox').className = 'exp-box';
+  document.getElementById('nextBtn').classList.add('hidden');
+
+  const distractors = ALL_WORDS.filter(o => o.word !== w.word)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+    .map(o => o.meaning);
+  const choicesArr = [w.meaning, ...distractors];
+  const shuffled = choicesArr.map((text, i) => ({ text, isCorrect: i === 0 }));
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const cont = document.getElementById('choices');
+  cont.innerHTML = '';
+  shuffled.forEach((ch, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = `<span class="choice-label">${LABELS[idx]}</span>${ch.text}`;
+    btn.onclick = () => {
+      if (answered) return;
+      answered = true;
+      if (ch.isCorrect) { scoreOk++; btn.classList.add('correct'); }
+      else {
+        scoreNg++;
+        btn.classList.add('wrong');
+        cont.querySelectorAll('.choice-btn').forEach((b, bi) => {
+          if (shuffled[bi].isCorrect) b.classList.add('correct');
+        });
+      }
+      cont.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+      document.getElementById('expBox').innerHTML =
+        `<div class="en">${w.exampleEn}</div><div>${w.exampleJa}</div>`;
+      document.getElementById('expBox').classList.add('show');
+      document.getElementById('nextBtn').classList.remove('hidden');
+      updateScore();
+    };
+    cont.appendChild(btn);
+  });
+
+  updateProgress(quizIdx + 1, quizList.length);
+}
+
+function nextQuiz() {
+  quizIdx++;
+  showQuiz();
+}
+
+function updateScore() {
+  document.getElementById('scoreOk').textContent = scoreOk;
+  document.getElementById('scoreNg').textContent = scoreNg;
+}
+
+function updateProgress(cur, total) {
+  document.getElementById('progressText').textContent = `${cur} / ${total}`;
+  document.getElementById('wordCountLabel').textContent = `全${ALL_WORDS.length}語`;
+  document.getElementById('progressFill').style.width = `${(cur / total) * 100}%`;
+}
+
+function showResult() {
+  document.getElementById('quizContent').classList.add('hidden');
+  document.getElementById('resultScreen').classList.remove('hidden');
+  const pct = Math.round((scoreOk / quizList.length) * 100);
+  document.getElementById('resultScore').textContent = `${pct}%`;
+  const msgs = [
+    [80, '🎉', '素晴らしい！しっかり覚えられています！'],
+    [60, '😊', 'もう少し！苦手な単語を重点的に復習しよう'],
+    [0,  '💪', 'もっと頑張れる！繰り返し練習しよう！'],
+  ];
+  const [,emoji, msg] = msgs.find(([t]) => pct >= t);
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultMsg').textContent = `${scoreOk}問正解 / ${quizList.length}問中　${msg}`;
+}
+
+function restartQuiz() { startQuiz(); }
+
+init();
+</script>
+</body>
+</html>
