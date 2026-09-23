@@ -64,6 +64,26 @@
   .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
   .tab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+  .cat-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+  }
+  .cat-tab-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: white;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cat-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
   .main { padding: 16px; max-width: 600px; margin: 0 auto; }
 
   .empty-state {
@@ -275,8 +295,13 @@
 <div class="topnav"><a href="index.html">← 英検3級クイズに戻る</a></div>
 <header>
   <h1>📚 英単語スタディアプリ</h1>
-  <p id="headerSub">毎日の単語を、意味＆ネイティブの例文＆発音で覚えよう</p>
+  <p id="headerSub">毎日の単語・フレーズを、意味＆ネイティブの例文＆発音で覚えよう</p>
 </header>
+
+<div class="cat-tabs">
+  <button class="cat-tab-btn active" id="catWord" onclick="switchCategory('word')">🔤 単語</button>
+  <button class="cat-tab-btn" id="catPhrase" onclick="switchCategory('phrase')">💬 フレーズ</button>
+</div>
 
 <div class="tabs">
   <button class="tab-btn active" id="tabFlash" onclick="switchMode('flash')">📖 フラッシュカード</button>
@@ -286,9 +311,7 @@
 <div class="main">
   <div id="emptyState" class="empty-state hidden">
     <div class="emoji">🌱</div>
-    まだ単語が登録されていません。<br>
-    毎日の英単語をチャットで伝えると、ここに貯まっていきます。<br>
-    ある程度貯まったら「単語帳アプリ更新して」と言ってね。
+    <span id="emptyStateText"></span>
   </div>
 
   <div id="appBody">
@@ -302,7 +325,7 @@
       <div class="card-wrap" onclick="flipCard()">
         <div class="card" id="card">
           <div class="card-face card-front">
-            <div class="card-label">Word</div>
+            <div class="card-label" id="cardFrontLabel">Word</div>
             <div class="card-word-row">
               <div class="card-word" id="flashWord"></div>
               <button class="speak-btn" onclick="event.stopPropagation(); speakWord()" title="発音を聞く">🔊</button>
@@ -357,18 +380,25 @@
 
     <div id="quizTooFew" class="empty-state hidden">
       <div class="emoji">🔢</div>
-      4択クイズは単語が4語以上たまると使えるようになります。<br>
-      それまではフラッシュカードで覚えよう！
+      <span id="quizTooFewText"></span>
     </div>
   </div>
 </div>
 
 <script>
-// このデータは vocabulary.json の内容から、トリガー発動時にClaudeが
+// このデータは vocabulary.json / phrases.json の内容から、トリガー発動時にClaudeが
 // 日本語訳・ネイティブの例文を生成して丸ごと差し替えます。
-// 形式: { word, meaning, exampleEn, exampleJa }
+// 単語の形式: { word, meaning, exampleEn, exampleJa }
+// フレーズの形式: { phrase, meaning, exampleEn, exampleJa }
 const ALL_WORDS = [];
+const ALL_PHRASES = [];
 
+const CATEGORY_INFO = {
+  word:   { items: ALL_WORDS,   key: 'word',   label: '単語',     unit: '語',     cardLabel: 'Word' },
+  phrase: { items: ALL_PHRASES, key: 'phrase', label: 'フレーズ', unit: 'フレーズ', cardLabel: 'Phrase' },
+};
+
+let category = 'word';
 let mode = 'flash';
 let flashIdx = 0;
 let quizList = [];
@@ -379,6 +409,10 @@ let answered = false;
 
 const LABELS = ['A','B','C','D'];
 
+function currentInfo() { return CATEGORY_INFO[category]; }
+function currentItems() { return currentInfo().items; }
+function termOf(item) { return item[currentInfo().key]; }
+
 function speak(text) {
   if (!text || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
@@ -388,24 +422,43 @@ function speak(text) {
   window.speechSynthesis.speak(utter);
 }
 
-function speakWord() { speak(ALL_WORDS[flashIdx]?.word); }
-function speakExample() { speak(ALL_WORDS[flashIdx]?.exampleEn); }
-function speakQuiz() { speak(quizList[quizIdx]?.word); }
+function speakWord() { speak(termOf(currentItems()[flashIdx])); }
+function speakExample() { speak(currentItems()[flashIdx]?.exampleEn); }
+function speakQuiz() { speak(termOf(quizList[quizIdx])); }
+
+function switchCategory(cat) {
+  category = cat;
+  document.getElementById('catWord').classList.toggle('active', cat === 'word');
+  document.getElementById('catPhrase').classList.toggle('active', cat === 'phrase');
+  document.getElementById('cardFrontLabel').textContent = currentInfo().cardLabel;
+  flashIdx = 0;
+  document.getElementById('card').classList.remove('flipped');
+  init();
+}
 
 function init() {
-  document.getElementById('wordCountLabel').textContent = `全${ALL_WORDS.length}語`;
-  if (ALL_WORDS.length === 0) {
+  const info = currentInfo();
+  const items = currentItems();
+  document.getElementById('cardFrontLabel').textContent = info.cardLabel;
+  document.getElementById('wordCountLabel').textContent = `全${items.length}${info.unit}`;
+  if (items.length === 0) {
+    document.getElementById('emptyStateText').innerHTML =
+      `まだ${info.label}が登録されていません。<br>` +
+      `毎日の${info.label}をチャットで伝えると、ここに貯まっていきます。<br>` +
+      `ある程度貯まったら「単語帳アプリ更新して」と言ってね。`;
     document.getElementById('emptyState').classList.remove('hidden');
     document.getElementById('appBody').classList.add('hidden');
     return;
   }
-  document.getElementById('tabQuiz').disabled = ALL_WORDS.length < 4;
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('appBody').classList.remove('hidden');
+  document.getElementById('tabQuiz').disabled = items.length < 4;
   if (mode === 'flash') showFlash();
   else startQuiz();
 }
 
 function switchMode(m) {
-  if (m === 'quiz' && ALL_WORDS.length < 4) return;
+  if (m === 'quiz' && currentItems().length < 4) return;
   mode = m;
   document.getElementById('tabFlash').classList.toggle('active', m === 'flash');
   document.getElementById('tabQuiz').classList.toggle('active', m === 'quiz');
@@ -417,46 +470,53 @@ function switchMode(m) {
 }
 
 function showFlash() {
-  const w = ALL_WORDS[flashIdx];
-  document.getElementById('flashWord').textContent = w.word;
+  const items = currentItems();
+  const w = items[flashIdx];
+  document.getElementById('flashWord').textContent = termOf(w);
   document.getElementById('flashMeaning').textContent = w.meaning;
   document.getElementById('flashExampleEn').textContent = w.exampleEn;
   document.getElementById('flashExampleJa').textContent = w.exampleJa;
   document.getElementById('card').classList.remove('flipped');
-  updateProgress(flashIdx + 1, ALL_WORDS.length);
+  updateProgress(flashIdx + 1, items.length);
 }
 
 function flipCard() { document.getElementById('card').classList.toggle('flipped'); }
 
 function nextCard() {
-  flashIdx = (flashIdx + 1) % ALL_WORDS.length;
+  const items = currentItems();
+  flashIdx = (flashIdx + 1) % items.length;
   showFlash();
 }
 
 function prevCard() {
-  flashIdx = (flashIdx - 1 + ALL_WORDS.length) % ALL_WORDS.length;
+  const items = currentItems();
+  flashIdx = (flashIdx - 1 + items.length) % items.length;
   showFlash();
 }
 
 function shuffleCards() {
-  for (let i = ALL_WORDS.length - 1; i > 0; i--) {
+  const items = currentItems();
+  for (let i = items.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [ALL_WORDS[i], ALL_WORDS[j]] = [ALL_WORDS[j], ALL_WORDS[i]];
+    [items[i], items[j]] = [items[j], items[i]];
   }
   flashIdx = 0;
   showFlash();
 }
 
 function startQuiz() {
-  if (ALL_WORDS.length < 4) {
+  const items = currentItems();
+  if (items.length < 4) {
     document.getElementById('quizContent').classList.add('hidden');
     document.getElementById('resultScreen').classList.add('hidden');
+    document.getElementById('quizTooFewText').textContent =
+      `4択クイズは${currentInfo().label}が4つ以上たまると使えるようになります。フラッシュカードで覚えよう！`;
     document.getElementById('quizTooFew').classList.remove('hidden');
     return;
   }
   document.getElementById('quizTooFew').classList.add('hidden');
   document.getElementById('quizContent').classList.remove('hidden');
-  quizList = [...ALL_WORDS];
+  quizList = [...items];
   for (let i = quizList.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [quizList[i], quizList[j]] = [quizList[j], quizList[i]];
@@ -472,11 +532,11 @@ function showQuiz() {
   if (quizIdx >= quizList.length) { showResult(); return; }
   const w = quizList[quizIdx];
   answered = false;
-  document.getElementById('quizQ').textContent = w.word;
+  document.getElementById('quizQ').textContent = termOf(w);
   document.getElementById('expBox').className = 'exp-box';
   document.getElementById('nextBtn').classList.add('hidden');
 
-  const distractors = ALL_WORDS.filter(o => o.word !== w.word)
+  const distractors = currentItems().filter(o => termOf(o) !== termOf(w))
     .sort(() => Math.random() - 0.5)
     .slice(0, 3)
     .map(o => o.meaning);
@@ -529,7 +589,7 @@ function updateScore() {
 
 function updateProgress(cur, total) {
   document.getElementById('progressText').textContent = `${cur} / ${total}`;
-  document.getElementById('wordCountLabel').textContent = `全${ALL_WORDS.length}語`;
+  document.getElementById('wordCountLabel').textContent = `全${currentItems().length}${currentInfo().unit}`;
   document.getElementById('progressFill').style.width = `${(cur / total) * 100}%`;
 }
 
@@ -540,7 +600,7 @@ function showResult() {
   document.getElementById('resultScore').textContent = `${pct}%`;
   const msgs = [
     [80, '🎉', '素晴らしい！しっかり覚えられています！'],
-    [60, '😊', 'もう少し！苦手な単語を重点的に復習しよう'],
+    [60, '😊', 'もう少し！苦手なところを重点的に復習しよう'],
     [0,  '💪', 'もっと頑張れる！繰り返し練習しよう！'],
   ];
   const [,emoji, msg] = msgs.find(([t]) => pct >= t);
