@@ -34,6 +34,7 @@
    - デザインは `index.html` と統一感を持たせる（同じ配色・フラッシュカード/4択クイズ構成）。
    - 単語が1件もない場合は「まだ単語が登録されていません」という空状態を表示する。
    - 4択クイズは選択肢が4つ作れる語数（4語以上）になってから有効化する。
+   - 発音機能（Web Speech API の `speechSynthesis` を使った🔊ボタン、`speak`/`speakWord`/`speakExample`/`speakQuiz` 関数）は既存の仕組みなので、`ALL_WORDS` 配列以外は壊さないこと。
 4. 変更をコミットし、現在の作業ブランチにpushする。
    - コミットメッセージ例: `Rebuild vocab study app (N words)`
 5. `main` にマージ/PR作成しない限りGitHub Pagesには反映されない旨を、作業後に一言添える。
