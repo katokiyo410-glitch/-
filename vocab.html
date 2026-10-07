@@ -84,6 +84,32 @@
   }
   .cat-tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
+  .speed-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--subtext);
+  }
+  .speed-row .speed-label { flex-shrink: 0; font-weight: 600; }
+  .speed-btns { display: flex; gap: 6px; flex: 1; }
+  .speed-btn {
+    flex: 1;
+    padding: 6px 4px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .speed-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
   .main { padding: 16px; max-width: 600px; margin: 0 auto; }
 
   .empty-state {
@@ -306,6 +332,15 @@
 <div class="tabs">
   <button class="tab-btn active" id="tabFlash" onclick="switchMode('flash')">📖 フラッシュカード</button>
   <button class="tab-btn" id="tabQuiz" onclick="switchMode('quiz')">✏️ 4択クイズ</button>
+</div>
+
+<div class="speed-row">
+  <span class="speed-label">🔊 発音速度</span>
+  <div class="speed-btns">
+    <button class="speed-btn" data-rate="0.7" onclick="setSpeechRate(0.7)">ゆっくり</button>
+    <button class="speed-btn" data-rate="1.0" onclick="setSpeechRate(1.0)">標準</button>
+    <button class="speed-btn" data-rate="1.3" onclick="setSpeechRate(1.3)">はやい</button>
+  </div>
 </div>
 
 <div class="main">
@@ -564,12 +599,26 @@ function currentInfo() { return CATEGORY_INFO[category]; }
 function currentItems() { return currentInfo().items; }
 function termOf(item) { return item[currentInfo().key]; }
 
+let speechRate = 1.0;
+try {
+  const saved = localStorage.getItem('vocabSpeechRate');
+  if (saved) speechRate = parseFloat(saved);
+} catch (e) {}
+
+function setSpeechRate(rate) {
+  speechRate = rate;
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.rate) === rate);
+  });
+  try { localStorage.setItem('vocabSpeechRate', String(rate)); } catch (e) {}
+}
+
 function speak(text) {
   if (!text || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = 'en-US';
-  utter.rate = 0.95;
+  utter.rate = speechRate;
   window.speechSynthesis.speak(utter);
 }
 
@@ -587,7 +636,14 @@ function switchCategory(cat) {
   init();
 }
 
+function initSpeedButtons() {
+  document.querySelectorAll('.speed-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.rate) === speechRate);
+  });
+}
+
 function init() {
+  initSpeedButtons();
   const info = currentInfo();
   const items = currentItems();
   document.getElementById('cardFrontLabel').textContent = info.cardLabel;
