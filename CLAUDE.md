@@ -38,7 +38,8 @@
 3. `vocab.html` 内の埋め込みデータ配列 `ALL_WORDS`（単語用、`{word, meaning, exampleEn, exampleJa}`）と
    `ALL_PHRASES`（フレーズ用、`{phrase, meaning, exampleEn, exampleJa}`）をこの内容で丸ごと置き換えて再生成する。
    - デザイン・単語/フレーズ切り替えタブ・発音ボタン（🔊、Web Speech APIの`speechSynthesis`、
-     `speak`/`speakWord`/`speakExample`/`speakQuiz`関数）など、データ配列以外の仕組みは壊さないこと。
+     `speak`/`speakWord`/`speakExample`/`speakQuiz`関数）・発音速度コントロール（ゆっくり/標準/はやい、
+     `setSpeechRate`関数、`localStorage`に保存）など、データ配列以外の仕組みは壊さないこと。
    - 単語・フレーズそれぞれ、0件なら空状態、4件未満なら4択クイズを無効のままにする
      （`CATEGORY_INFO`と`currentItems()`まわりのロジックを前提に、配列の中身だけ差し替えればよい）。
 4. 変更をコミットし、現在の作業ブランチにpushする。
